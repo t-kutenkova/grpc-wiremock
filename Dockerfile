@@ -94,6 +94,8 @@ COPY ./etc/rsyslog.d/wiremock.conf /etc/rsyslog.d/wiremock.conf
 COPY scripts /scripts
 RUN chmod -R +x /scripts
 
+COPY static/proxy/template/layout/pkg/status/status.go /debug/status.go
+
 # Nginx
 ARG NGINX_DIR="/etc/nginx/http.d"
 COPY etc/nginx/http.d ${NGINX_DIR}
