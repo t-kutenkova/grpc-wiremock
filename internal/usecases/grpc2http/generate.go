@@ -94,6 +94,8 @@ func (p GenerateProxyUsecase) Generate(ctx context.Context) error {
 }
 
 func (p GenerateProxyUsecase) overwriteContracts() (protocontract.SetOfContracts, error) {
+	fmt.Fprintf(p.Logs, "=== OVERWRITE CONTRACTS ===\n")
+
 	contractsSourcer, err := sourcer.New(p.Fs, p.Path, types.ProtoType)
 	if err != nil {
 		return nil, fmt.Errorf("create sourcer: %w", err)
@@ -104,14 +106,20 @@ func (p GenerateProxyUsecase) overwriteContracts() (protocontract.SetOfContracts
 		return nil, fmt.Errorf("load: %w", err)
 	}
 
+	fmt.Fprintf(p.Logs, "Loaded %d contracts from sourcer\n", len(contracts))
+
 	goPackageUpdater := updaters.NewGoPackageUpdater()
 
 	descriptors := traverser.Descriptors(contracts)
+
+	fmt.Fprintf(p.Logs, "Got %d descriptors from traverser\n", len(descriptors))
 
 	updatedDescriptors, err := builder.UpdateContracts(descriptors, goPackageUpdater)
 	if err != nil {
 		return nil, fmt.Errorf("overwrite: %w", err)
 	}
+
+	fmt.Fprintf(p.Logs, "Updated %d descriptors\n", len(updatedDescriptors))
 
 	path := environment.TmpOverwrittenContractsDir
 
@@ -119,6 +127,8 @@ func (p GenerateProxyUsecase) overwriteContracts() (protocontract.SetOfContracts
 	if err != nil {
 		return nil, fmt.Errorf("create tmp dir: %w", err)
 	}
+
+	fmt.Fprintf(p.Logs, "Overwritten contracts temp dir: %s\n", tmpDirForContract)
 
 	if err = printer.Print(updatedDescriptors, tmpDirForContract); err != nil {
 		return nil, fmt.Errorf("print: %w", err)
@@ -133,6 +143,9 @@ func (p GenerateProxyUsecase) overwriteContracts() (protocontract.SetOfContracts
 	if err != nil {
 		return nil, fmt.Errorf("load overwritten contracts: %w", err)
 	}
+
+	fmt.Fprintf(p.Logs, "Loaded %d contracts from overwritten temp dir\n", len(contracts))
+	fmt.Fprintf(p.Logs, "=== END OVERWRITE CONTRACTS ===\n")
 
 	return contracts, nil
 }

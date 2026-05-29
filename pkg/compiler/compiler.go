@@ -83,6 +83,27 @@ func (c compiler) compile(ctx context.Context, contract compilecontract.Contract
 		return fmt.Errorf("print: %w", err)
 	}
 
+	// Log contract details for debugging proto registration issues
+	if _, err := fmt.Fprintln(logs, "=== CONTRACT DETAILS ==="); err != nil {
+		return fmt.Errorf("print: %w", err)
+	}
+	if _, err := fmt.Fprintln(logs, "HeaderPath:", contract.HeaderPath); err != nil {
+		return fmt.Errorf("print: %w", err)
+	}
+	if len(contract.ImportsPaths) > 0 {
+		if _, err := fmt.Fprintln(logs, "ImportsPaths:"); err != nil {
+			return fmt.Errorf("print: %w", err)
+		}
+		for _, imp := range contract.ImportsPaths {
+			if _, err := fmt.Fprintln(logs, "  -", imp); err != nil {
+				return fmt.Errorf("print: %w", err)
+			}
+		}
+	}
+	if _, err := fmt.Fprintln(logs, "=== END CONTRACT DETAILS ==="); err != nil {
+		return fmt.Errorf("print: %w", err)
+	}
+
 	if err := c.Run(ctx, c.compilerPath, compile.Args()...); err != nil {
 		return fmt.Errorf("run: %w", err)
 	}
