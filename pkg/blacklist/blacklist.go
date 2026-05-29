@@ -5,7 +5,11 @@ import "strings"
 func IsDeliveredWithProtoc(value string) bool {
 	var (
 		filePathsDoNotTouch  = []string{"google/protobuf"}
-		goPackagesDoNotTouch = []string{"google.golang.org/protobuf"}
+		goPackagesDoNotTouch = []string{
+			"google.golang.org/protobuf",
+			"google.golang.org/genproto/googleapis/rpc",
+			"google.golang.org/genproto/googleapis/api",
+		}
 	)
 
 	for _, file := range filePathsDoNotTouch {
