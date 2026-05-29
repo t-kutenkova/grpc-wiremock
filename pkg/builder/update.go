@@ -2,6 +2,7 @@ package builder
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/jhump/protoreflect/desc"
 
@@ -16,18 +17,28 @@ type protoUpdater interface {
 func UpdateContracts(contracts []*desc.FileDescriptor, updaters ...protoUpdater) ([]*desc.FileDescriptor, error) {
 	var updatedDescriptors []*desc.FileDescriptor
 
-	for _, descriptor := range contracts {
+	fmt.Fprintf(os.Stdout, "=== UPDATE CONTRACTS ===\n")
+	fmt.Fprintf(os.Stdout, "Total contracts to process: %d\n", len(contracts))
+
+	for i, descriptor := range contracts {
 		goPackage := protoGoPackage(descriptor)
 
+		fmt.Fprintf(os.Stdout, "Contract %d: %s\n", i+1, descriptor.GetName())
+		fmt.Fprintf(os.Stdout, "  go_package: %s\n", goPackage)
+
 		if blacklist.IsGoogleAPIContract(goPackage) {
+			fmt.Fprintf(os.Stdout, "  Skipping: Google API contract\n")
 			updatedDescriptors = append(updatedDescriptors, descriptor)
 			continue
 		}
 
 		if blacklist.IsDeliveredWithProtoc(goPackage) {
+			fmt.Fprintf(os.Stdout, "  Skipping: Delivered with protoc\n")
 			updatedDescriptors = append(updatedDescriptors, descriptor)
 			continue
 		}
+
+		fmt.Fprintf(os.Stdout, "  Will update with %d updaters\n", len(updaters))
 
 		updatedDescriptor := descriptor
 
@@ -41,6 +52,8 @@ func UpdateContracts(contracts []*desc.FileDescriptor, updaters ...protoUpdater)
 
 		updatedDescriptors = append(updatedDescriptors, updatedDescriptor)
 	}
+
+	fmt.Fprintf(os.Stdout, "=== END UPDATE CONTRACTS ===\n")
 
 	return updatedDescriptors, nil
 }

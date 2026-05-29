@@ -2,6 +2,7 @@ package updaters
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	protodesc "github.com/golang/protobuf/protoc-gen-go/descriptor"
@@ -27,14 +28,25 @@ func (u *goPackageUpdater) Update(contract *desc.FileDescriptor) (*desc.FileDesc
 }
 
 func overwriteGoPackage(descriptor *desc.FileDescriptor) (*desc.FileDescriptor, error) {
+	fmt.Fprintf(os.Stdout, "=== UPDATE GO PACKAGE ===\n")
+	fmt.Fprintf(os.Stdout, "File name: %s\n", descriptor.GetName())
+	fmt.Fprintf(os.Stdout, "Package: %s\n", descriptor.GetPackage())
+
 	if blacklist.IsDeliveredWithProtoc(descriptor.GetName()) {
+		fmt.Fprintf(os.Stdout, "Skipping: file is delivered with protoc\n")
+		fmt.Fprintf(os.Stdout, "=== END UPDATE GO PACKAGE ===\n")
 		return descriptor, nil
 	}
 
 	updatedGopackage, err := updateGopackage(descriptor)
 	if err != nil {
+		fmt.Fprintf(os.Stdout, "Error updating go package: %v\n", err)
+		fmt.Fprintf(os.Stdout, "=== END UPDATE GO PACKAGE ===\n")
 		return descriptor, nil
 	}
+
+	fmt.Fprintf(os.Stdout, "Original go_package: %v\n", descriptor.GetFileOptions().GetGoPackage())
+	fmt.Fprintf(os.Stdout, "Updated go_package: %s\n", updatedGopackage)
 
 	fileBuilder, err := builder.FromFile(descriptor)
 	if err != nil {
@@ -47,6 +59,8 @@ func overwriteGoPackage(descriptor *desc.FileDescriptor) (*desc.FileDescriptor, 
 	if err != nil {
 		return nil, fmt.Errorf("build: %w", err)
 	}
+
+	fmt.Fprintf(os.Stdout, "=== END UPDATE GO PACKAGE ===\n")
 
 	return updatedDescriptor, nil
 }

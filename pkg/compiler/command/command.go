@@ -2,6 +2,7 @@ package command
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -58,6 +59,22 @@ func BuildArgs(
 	var flags []flag
 
 	protoPaths := append(extraProtoPaths, getProtoPaths(contract)...)
+
+	// Log proto paths for debugging proto registration issues
+	fmt.Fprintf(colorOutput(), "=== PROTO PATHS ===\n")
+	fmt.Fprintf(colorOutput(), "Extra proto paths:\n")
+	for _, path := range extraProtoPaths {
+		fmt.Fprintf(colorOutput(), "  - %s\n", path)
+	}
+	fmt.Fprintf(colorOutput(), "Contract proto paths:\n")
+	for _, path := range getProtoPaths(contract) {
+		fmt.Fprintf(colorOutput(), "  - %s\n", path)
+	}
+	fmt.Fprintf(colorOutput(), "Total proto paths:\n")
+	for _, path := range protoPaths {
+		fmt.Fprintf(colorOutput(), "  - %s\n", path)
+	}
+	fmt.Fprintf(colorOutput(), "=== END PROTO PATHS ===\n")
 
 	for _, path := range protoPaths {
 		flags = append(flags, createProtoPath(path))
@@ -122,6 +139,11 @@ func (c *Command) toSlice() []string {
 	args = append(args, c.arguments...)
 
 	return args
+}
+
+// colorOutput returns os.Stdout for colored logging
+func colorOutput() *os.File {
+	return os.Stdout
 }
 
 type CompileCommand map[protoCompilerPlugin]pluginValues

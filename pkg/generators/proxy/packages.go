@@ -22,6 +22,35 @@ func (g proxyGenerator) GeneratePackages(ctx context.Context, contracts contract
 }
 
 func (g proxyGenerator) generatePackages(ctx context.Context, contracts contract.SetOfContracts, output string, logs io.Writer) error {
+	// Log all contracts being compiled for debugging proto registration issues
+	if _, err := fmt.Fprintln(logs, "=== PACKAGES GENERATION ==="); err != nil {
+		return fmt.Errorf("print: %w", err)
+	}
+	if _, err := fmt.Fprintln(logs, "Total contracts to generate:", len(contracts)); err != nil {
+		return fmt.Errorf("print: %w", err)
+	}
+	for i, c := range contracts {
+		if _, err := fmt.Fprintln(logs, fmt.Sprintf("Contract %d:", i+1)); err != nil {
+			return fmt.Errorf("print: %w", err)
+		}
+		if _, err := fmt.Fprintln(logs, "  HeaderPath:", c.HeaderPath); err != nil {
+			return fmt.Errorf("print: %w", err)
+		}
+		if len(c.ImportsPaths) > 0 {
+			if _, err := fmt.Fprintln(logs, "  ImportsPaths:"); err != nil {
+				return fmt.Errorf("print: %w", err)
+			}
+			for _, imp := range c.ImportsPaths {
+				if _, err := fmt.Fprintln(logs, "    -", imp); err != nil {
+					return fmt.Errorf("print: %w", err)
+				}
+			}
+		}
+	}
+	if _, err := fmt.Fprintln(logs, "=== END PACKAGES GENERATION ==="); err != nil {
+		return fmt.Errorf("print: %w", err)
+	}
+
 	errG, errCtx := errgroup.WithContext(ctx)
 	errG.SetLimit(len(contracts))
 
