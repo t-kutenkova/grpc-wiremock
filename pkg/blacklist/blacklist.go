@@ -4,7 +4,7 @@ import "strings"
 
 func IsDeliveredWithProtoc(value string) bool {
 	var (
-		filePathsDoNotTouch  = []string{"google/protobuf"}
+		filePathsDoNotTouch  = []string{"google/protobuf", "google/rpc"}
 		goPackagesDoNotTouch = []string{
 			"google.golang.org/protobuf",
 			"google.golang.org/genproto/googleapis/rpc",
