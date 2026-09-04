@@ -25,6 +25,8 @@ func mockgenCommand(subCommands ...*cobra.Command) *cobra.Command {
 	command := &cobra.Command{
 		Use: "mockgen",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			defer removeTmpDirs()
+
 			contractType, err := createContractType(args.contractType)
 			if err != nil {
 				return err

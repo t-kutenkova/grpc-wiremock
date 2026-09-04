@@ -5,9 +5,11 @@ import (
 	"log"
 	"os"
 
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 
 	"github.com/SberMarket-Tech/grpc-wiremock/internal/usecases/grpc2http"
+	"github.com/SberMarket-Tech/grpc-wiremock/pkg/environment"
 )
 
 func main() {
@@ -17,6 +19,12 @@ func main() {
 	}
 	if err = command.Execute(); err != nil {
 		log.Fatalln("execute cli command:", err.Error())
+	}
+}
+
+func removeTmpDirs() {
+	if err := environment.RemoveProcessTmpDirs(afero.NewOsFs()); err != nil {
+		log.Println("remove tmp dirs:", err.Error())
 	}
 }
 
@@ -31,6 +39,8 @@ func buildGenerateCommand() (*cobra.Command, error) {
 		args    flags
 		rootCmd = &cobra.Command{
 			RunE: func(cmd *cobra.Command, _ []string) error {
+				defer removeTmpDirs()
+
 				gen := grpc2http.NewProxyGen(args.inputPath, args.outputPath, args.baseURL, os.Stdout)
 				return gen.Generate(cmd.Context())
 			},

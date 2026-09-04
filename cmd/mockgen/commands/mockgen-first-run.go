@@ -20,6 +20,8 @@ func mockgenFirstRun(subCommands ...*cobra.Command) *cobra.Command {
 	command := &cobra.Command{
 		Use: "first-run",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			defer removeTmpDirs()
+
 			gen := mockgen_first_run.NewMocksGenWithDefaultFs(args.DomainsPath, args.WiremockPath, os.Stdout)
 			return gen.GenerateForEachDomain(cmd.Context())
 		},

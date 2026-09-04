@@ -13,19 +13,12 @@ import (
 )
 
 const (
-	TmpUnifiedContractsDir     = "/tmp/unified-contracts"
-	TmpOverwrittenContractsDir = "/tmp/overwritten-contracts"
-	TmpGeneratedPackagesDir    = "/tmp/generated-packages"
-
 	NginxConfigsPath          = "/etc/nginx/http.d"
 	SupervisordConfigsPath    = "/etc/supervisord/mocks"
 	SupervisordConfigsDirPath = "/etc/supervisord"
 	SupervisordMainConfigPath = "/etc/supervisord/supervisord.conf"
 
 	DefaultWiremockConfigPath = "/home/mock"
-
-	TmpWellKnownProtosDir  = "/tmp/proto-includes"
-	TmpAnnotationProtosDir = "/tmp/proto-annotations"
 
 	AnnotationsPath     = "google/api/annotations.proto"
 	AnnotationsHttpPath = "google/api/http.proto"
@@ -40,6 +33,30 @@ const (
 	CertKeyFile  = "mock/mock.key"
 	CertCertFile = "mock/mock.crt"
 )
+
+// Tmp directories are unique per process. Mocks and proxy generators run in
+// parallel, share the same tmp root and wipe it on start (see CleanTmpDirs),
+// so with fixed paths they used to delete each other's files mid-run.
+var (
+	TmpUnifiedContractsDir     = processTmpDir("unified-contracts")
+	TmpOverwrittenContractsDir = processTmpDir("overwritten-contracts")
+	TmpGeneratedPackagesDir    = processTmpDir("generated-packages")
+
+	TmpWellKnownProtosDir  = processTmpDir("proto-includes")
+	TmpAnnotationProtosDir = processTmpDir("proto-annotations")
+)
+
+func processTmpDir(name string) string {
+	return filepath.Join(os.TempDir(), fmt.Sprintf("%s-%d", name, os.Getpid()))
+}
+
+func contractsTmpDirs() []string {
+	return []string{
+		TmpUnifiedContractsDir,
+		TmpGeneratedPackagesDir,
+		TmpOverwrittenContractsDir,
+	}
+}
 
 func DumpProtos(fs afero.Fs) error {
 	protoToCopy := map[string]string{
@@ -59,14 +76,23 @@ func DumpProtos(fs afero.Fs) error {
 }
 
 func CleanTmpDirs(fs afero.Fs) error {
-	tmpDirs := []string{
-		TmpUnifiedContractsDir,
-		TmpGeneratedPackagesDir,
-		TmpOverwrittenContractsDir,
+	if err := fsutils.RemoveTmpDirs(fs, contractsTmpDirs()...); err != nil {
+		return fmt.Errorf("remove tmp dir: %w", err)
 	}
 
-	if err := fsutils.RemoveTmpDirs(fs, tmpDirs...); err != nil {
-		return fmt.Errorf("remove tmp dir: %w", err)
+	return nil
+}
+
+// RemoveProcessTmpDirs drops everything this process created in the tmp root.
+// Unlike CleanTmpDirs it does not recreate the directories, so it is meant to
+// be deferred by a command: without it every run would leave its dirs behind.
+func RemoveProcessTmpDirs(fs afero.Fs) error {
+	tmpDirs := append(contractsTmpDirs(), TmpWellKnownProtosDir, TmpAnnotationProtosDir)
+
+	for _, path := range tmpDirs {
+		if err := fs.RemoveAll(path); err != nil {
+			return fmt.Errorf("remove tmp dir '%s': %w", path, err)
+		}
 	}
 
 	return nil
