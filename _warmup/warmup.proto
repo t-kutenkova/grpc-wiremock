@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+// Package warmup exists only to warm up the Docker image build cache.
+// It intentionally touches every external Go module that generated proxy
+// code can ever import: the protobuf well-known types, google/rpc and
+// google/api/annotations. See dev/warmup/README.md.
+package warmup;
+
+option go_package = "grpc-proxy/warmup/pb;pb";
+
+import "google/api/annotations.proto";
+import "google/protobuf/any.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+import "google/rpc/status.proto";
+
+message WarmupRequest {
+  string id = 1;
+  google.protobuf.Timestamp created_at = 2;
+  google.protobuf.Duration ttl = 3;
+  google.protobuf.FieldMask mask = 4;
+  google.protobuf.Struct payload = 5;
+  google.protobuf.Any details = 6;
+  google.protobuf.StringValue note = 7;
+  repeated string tags = 8;
+  map<string, string> labels = 9;
+}
+
+message WarmupResponse {
+  WarmupRequest request = 1;
+  google.rpc.Status status = 2;
+}
+
+service WarmupService {
+  rpc Unary(WarmupRequest) returns (WarmupResponse) {
+    option (google.api.http) = {
+      post: "/v1/warmup"
+      body: "*"
+    };
+  }
+  rpc ServerStreaming(WarmupRequest) returns (stream WarmupResponse) {}
+  rpc ClientStreaming(stream WarmupRequest) returns (WarmupResponse) {}
+  rpc BidiStreaming(stream WarmupRequest) returns (stream WarmupResponse) {}
+  rpc Empty(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+}

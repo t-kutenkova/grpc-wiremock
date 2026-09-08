@@ -25,10 +25,20 @@ ENV CGO_ENABLED=0
 ENV GOPATH="/go"
 ENV GOCACHE="/go/go-build"
 
-# Warm up go mod & build cache
-COPY ./example /tmp/gocache
-RUN make install -C /tmp/gocache && \
-    rm -rf /tmp/gocache
+# Warm up go mod & build cache.
+#
+# The warmup is built from the proxy template itself, against the very same
+# pinned go.mod/go.sum the generated proxy gets at runtime. Versions must match
+# exactly, otherwise the cached packages sit under different keys and every
+# container start recompiles them from scratch — hence no `go mod tidy` here.
+COPY static/proxy/template/layout /warmup
+COPY _warmup /warmup/warmup
+
+RUN mv /warmup/go.mod.rename.me /warmup/go.mod && \
+    cd /warmup && \
+    go mod download all && \
+    go build ./... && \
+    cd / && rm -rf /warmup
 
 FROM ${WIREMOCK_IMAGE_REPO}/${WIREMOCK_IMAGE_NAME}:${WIREMOCK_IMAGE_TAG}
 
