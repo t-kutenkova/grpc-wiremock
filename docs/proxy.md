@@ -72,9 +72,15 @@ Examples of stubs for each type of gRPC interactions:
             return nil, status.Error(http.StatusBadGateway, fmt.Sprintf("create http request: %v", err))
         }
         
-        httpResponseBody, err := wiremock.DoRequestDefault(request)
+        httpResponseBody, responseMetaData, err := wiremock.DoRequestUnary(request)
         if err != nil {
             return nil, err
+        }
+
+        if len(responseMetaData) > 0 {
+            if err = grpc.SetHeader(ctx, responseMetaData); err != nil {
+                return nil, status.Error(http.StatusBadGateway, fmt.Sprintf("set response header: %v", err))
+            }
         }
         
         var protoResponse example.Response

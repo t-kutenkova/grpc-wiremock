@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	statustocode "grpc-proxy/pkg/status"
@@ -16,7 +17,37 @@ import (
 
 var client = http.Client{Timeout: time.Second * 3}
 
-const streamCursor = "streamCursor"
+const (
+	streamCursor = "streamCursor"
+	streamSize   = "streamSize"
+)
+
+// skippedResponseHeaders are HTTP response headers that must not be forwarded
+// to gRPC response metadata: hop-by-hop headers, headers describing the HTTP
+// transport/body and WireMock service headers.
+var skippedResponseHeaders = map[string]struct{}{
+	// hop-by-hop
+	"connection":          {},
+	"keep-alive":          {},
+	"proxy-authenticate":  {},
+	"proxy-authorization": {},
+	"proxy-connection":    {},
+	"te":                  {},
+	"trailer":             {},
+	"transfer-encoding":   {},
+	"upgrade":             {},
+	// transport/body
+	"content-type":     {},
+	"content-length":   {},
+	"content-encoding": {},
+	"date":             {},
+	"server":           {},
+	"vary":             {},
+	// wiremock
+	"matched-stub-id":   {},
+	"matched-stub-name": {},
+	"streamsize":        {},
+}
 
 func DefaultRequest(ctx context.Context, url string, body io.Reader) (*http.Request, error) {
 	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, url, body)
@@ -51,6 +82,24 @@ func DoRequestDefault(request *http.Request) ([]byte, error) {
 	return body, nil
 }
 
+// DoRequestUnary returns the response body and the response headers that
+// should be forwarded to the gRPC client as header metadata.
+func DoRequestUnary(request *http.Request) ([]byte, metadata.MD, error) {
+	response, err := doRequest(request)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	defer response.Body.Close()
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, nil, status.Error(http.StatusBadGateway, fmt.Sprintf("read http response: %v", err))
+	}
+
+	return body, headersToMetaData(response.Header), nil
+}
+
 func DoRequestWithStreamSize(request *http.Request) ([]byte, int, error) {
 	response, err := doRequest(request)
 	if err != nil {
@@ -64,7 +113,7 @@ func DoRequestWithStreamSize(request *http.Request) ([]byte, int, error) {
 		return nil, 0, status.Error(http.StatusBadGateway, fmt.Sprintf("read http response: %v", err))
 	}
 
-	streamSizeRaw := response.Header.Get("streamSize")
+	streamSizeRaw := response.Header.Get(streamSize)
 	if len(streamSizeRaw) == 0 {
 		return nil, 0, status.Error(http.StatusBadGateway, fmt.Sprintf("read http response, stream size: %v", err))
 	}
@@ -91,6 +140,45 @@ func enrichWithMetaData(request *http.Request) *http.Request {
 	}
 
 	return request
+}
+
+func headersToMetaData(header http.Header) metadata.MD {
+	skipped := make(map[string]struct{})
+	for _, value := range header.Values("Connection") {
+		for _, name := range strings.Split(value, ",") {
+			skipped[strings.ToLower(strings.TrimSpace(name))] = struct{}{}
+		}
+	}
+
+	md := metadata.MD{}
+	for name, values := range header {
+		key := strings.ToLower(name)
+		if _, ok := skippedResponseHeaders[key]; ok {
+			continue
+		}
+		if _, ok := skipped[key]; ok {
+			continue
+		}
+		if strings.HasPrefix(key, "grpc-") || !isValidMetaDataKey(key) {
+			continue
+		}
+		md.Append(key, values...)
+	}
+
+	return md
+}
+
+// isValidMetaDataKey reports whether key is allowed as gRPC metadata key: [0-9a-z-_.].
+func isValidMetaDataKey(key string) bool {
+	if key == "" {
+		return false
+	}
+	for _, r := range key {
+		if !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '-' || r == '_' || r == '.') {
+			return false
+		}
+	}
+	return true
 }
 
 func doRequest(request *http.Request) (*http.Response, error) {

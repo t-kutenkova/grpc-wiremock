@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -29,9 +30,15 @@ func (p *Service) {{ .Method }}(ctx context.Context, in *{{ .MethodInPackage }}.
 		return nil, status.Error(http.StatusBadGateway, fmt.Sprintf("create http request: %v", err))
 	}
 
-	httpResponseBody, err := wiremock.DoRequestDefault(request)
+	httpResponseBody, responseMetaData, err := wiremock.DoRequestUnary(request)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(responseMetaData) > 0 {
+		if err = grpc.SetHeader(ctx, responseMetaData); err != nil {
+			return nil, status.Error(http.StatusBadGateway, fmt.Sprintf("set response header: %v", err))
+		}
 	}
 
 	var protoResponse {{ .MethodOutPackage }}.{{ .MethodOutName }}
